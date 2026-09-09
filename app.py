@@ -317,25 +317,89 @@ if study_question:
                 ai_ranked["fit_score"] = 0
 
             ai_ranked = ai_ranked.sort_values("fit_score", ascending=False)
-            st.markdown("#### Fit-for-purpose ranking")
-            st.dataframe(
-                ai_ranked[["source_name","fit_score","key_strengths","key_limitations"]]
-                .rename(columns={
-                    "source_name":"Data source",
-                    "fit_score":"Fit score (0–3)",
-                    "key_strengths":"Why it may fit",
-                    "key_limitations":"Important limitations"
-                }),
-                use_container_width=True,
-                hide_index=True
+            st.markdown("#### Best-fit sources")
+            if len(ai_ranked):
+                st.dataframe(
+                    ai_ranked[["source_name","fit_score","key_strengths","key_limitations"]]
+                    .rename(columns={
+                        "source_name":"Data source",
+                        "fit_score":"Fit score (0–3)",
+                        "key_strengths":"Why it may fit",
+                        "key_limitations":"Important limitations"
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.warning("No source in the current evidence base satisfies all stated hard requirements.")
+
+            # Near-miss analysis: score all Lp(a)-capable sources, then flag unmet hard requirements.
+            alternatives = df.copy()
+            if req["require_lpa"]:
+                alternatives = alternatives[alternatives["lpa_available"] == "Yes"]
+            if score_cols_ai:
+                alternatives["fit_score"] = alternatives[score_cols_ai].apply(
+                    pd.to_numeric, errors="coerce"
+                ).fillna(0).mean(axis=1)
+            else:
+                alternatives["fit_score"] = 0
+
+            def unmet_requirements(row):
+                unmet = []
+                if req["require_genetics"] and row["genetic_data"] not in ["Yes","Partial"]:
+                    unmet.append("genetics")
+                if req["require_costs"] and row["cost_data"] not in ["Yes","Partial"]:
+                    unmet.append("cost data")
+                if req["require_payer"] and row["insurance_payer"] not in ["Yes","Partial"]:
+                    unmet.append("payer information")
+                return ", ".join(unmet)
+
+            alternatives["Unmet hard requirements"] = alternatives.apply(unmet_requirements, axis=1)
+            best_names = set(ai_ranked["source_name"].tolist())
+            near = alternatives[
+                (~alternatives["source_name"].isin(best_names)) &
+                (alternatives["Unmet hard requirements"] != "")
+            ].sort_values("fit_score", ascending=False).head(5)
+
+            if len(near):
+                st.markdown("#### Potential alternatives and trade-offs")
+                st.dataframe(
+                    near[["source_name","fit_score","Unmet hard requirements","key_strengths","key_limitations"]]
+                    .rename(columns={
+                        "source_name":"Data source",
+                        "fit_score":"Fit score (0–3)",
+                        "key_strengths":"Why it may still be useful",
+                        "key_limitations":"Important limitations"
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            st.caption(
+                "AI interprets the study question. Rankings and trade-offs are generated from the predefined "
+                "evidence table and scoring rubric; the model does not invent source capabilities."
             )
-            st.caption("AI interprets the question; rankings come from the predefined dataset and scoring rubric.")
         except Exception as e:
-            st.error("The AI assistant could not run. Check the OpenAI API key and package version in Streamlit Secrets/logs.")
-            st.code(str(e))
+            msg = str(e).lower()
+            if "insufficient_quota" in msg or "no credits remaining" in msg:
+                st.warning("AI Study Assistant is temporarily unavailable because API usage credits are not available. The deterministic Dataset Explorer and Study Matcher remain fully functional.")
+            elif "authentication" in msg or "api key" in msg:
+                st.warning("AI Study Assistant is temporarily unavailable because its API connection could not be authenticated.")
+            else:
+                st.warning("AI Study Assistant is temporarily unavailable. The rest of the navigator remains fully functional.")
 
 with methods:
     st.subheader("Methodology")
+    st.markdown("### Interpreting fit scores")
+    st.markdown("""
+- **3 — Strong fit:** source has direct, well-documented capability for the use case.
+- **2 — Moderate fit:** usable capability with meaningful limitations or incomplete coverage.
+- **1 — Limited fit:** capability is indirect, restricted, or suitable only for selected analyses.
+- **0 — Not suitable / insufficient evidence:** required capability is absent or not supported by the current evidence base.
+
+`Unknown` is treated differently from `No`: lack of public documentation does not establish that a variable or capability is absent.
+""")
+    st.caption("Source characteristics and fit assessments should be re-verified before protocol finalization, vendor contracting, regulatory submission, or other consequential use.")
 
     st.write(
         "Documented source characteristics are separated from analyst-assigned "
