@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -58,8 +57,20 @@ with explorer:
         "verification_status",
     ]
 
+    pretty_view = view[display_cols].rename(columns={
+        "source_name": "Data source",
+        "data_type": "Data type",
+        "country": "Geography",
+        "approx_population": "Approx. population",
+        "lpa_available": "Lp(a) available",
+        "cv_outcomes_use": "CV outcomes fit",
+        "health_equity_use": "Health equity fit",
+        "heor_use": "HEOR fit",
+        "genetics_use": "Genetics fit",
+        "verification_status": "Evidence status",
+    })
     st.dataframe(
-        view[display_cols],
+        pretty_view,
         use_container_width=True,
         hide_index=True
     )
@@ -217,6 +228,111 @@ with gaps:
     st.bar_chart(
         gap.set_index("feature")[["Yes", "Partial"]]
     )
+
+
+st.divider()
+st.subheader("AI Study Assistant")
+st.caption("Describe a study question in plain English. AI extracts study requirements; the app's deterministic rubric remains responsible for ranking data sources.")
+
+study_question = st.text_area(
+    "Describe your RWE study",
+    placeholder="Example: I want to evaluate cardiovascular outcomes and healthcare utilization among U.S. patients with elevated Lp(a). I need longitudinal lab measurements, pharmacy data and costs."
+)
+
+if study_question:
+    if "OPENAI_API_KEY" not in st.secrets:
+        st.info("AI assistant is ready in the code. Add OPENAI_API_KEY in Streamlit Secrets to activate it.")
+    else:
+        try:
+            from openai import OpenAI
+            import json
+
+            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            schema = {
+                "type": "object",
+                "properties": {
+                    "geography": {"type": "string"},
+                    "priorities": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": [
+                            "Testing patterns", "Epidemiology / risk",
+                            "Cardiovascular outcomes", "Treatment patterns",
+                            "Health equity", "HEOR / costs / utilization", "Genetics"
+                        ]}
+                    },
+                    "require_genetics": {"type": "boolean"},
+                    "require_costs": {"type": "boolean"},
+                    "require_payer": {"type": "boolean"},
+                    "require_lpa": {"type": "boolean"},
+                    "summary": {"type": "string"}
+                },
+                "required": ["geography","priorities","require_genetics","require_costs","require_payer","require_lpa","summary"],
+                "additionalProperties": False
+            }
+
+            response = client.responses.create(
+                model="gpt-5.6",
+                instructions=(
+                    "You extract RWE study design requirements. Do not recommend a database. "
+                    "Only translate the user's question into the supplied schema. "
+                    "If a requirement is not stated, do not invent it."
+                ),
+                input=study_question,
+                text={"format": {
+                    "type": "json_schema",
+                    "name": "study_requirements",
+                    "strict": True,
+                    "schema": schema
+                }}
+            )
+            req = json.loads(response.output_text)
+            st.markdown("#### Interpreted requirements")
+            st.write(req["summary"])
+
+            use_map_ai = {
+                "Testing patterns":"testing_patterns_use",
+                "Epidemiology / risk":"epidemiology_use",
+                "Cardiovascular outcomes":"cv_outcomes_use",
+                "Treatment patterns":"treatment_patterns_use",
+                "Health equity":"health_equity_use",
+                "HEOR / costs / utilization":"heor_use",
+                "Genetics":"genetics_use",
+            }
+            ai_ranked = df.copy()
+            if req["require_lpa"]:
+                ai_ranked = ai_ranked[ai_ranked["lpa_available"] == "Yes"]
+            if req["require_genetics"]:
+                ai_ranked = ai_ranked[ai_ranked["genetic_data"].isin(["Yes","Partial"])]
+            if req["require_costs"]:
+                ai_ranked = ai_ranked[ai_ranked["cost_data"].isin(["Yes","Partial"])]
+            if req["require_payer"]:
+                ai_ranked = ai_ranked[ai_ranked["insurance_payer"].isin(["Yes","Partial"])]
+
+            score_cols_ai = [use_map_ai[p] for p in req["priorities"] if p in use_map_ai]
+            if score_cols_ai:
+                ai_ranked["fit_score"] = ai_ranked[score_cols_ai].apply(
+                    pd.to_numeric, errors="coerce"
+                ).fillna(0).mean(axis=1)
+            else:
+                ai_ranked["fit_score"] = 0
+
+            ai_ranked = ai_ranked.sort_values("fit_score", ascending=False)
+            st.markdown("#### Fit-for-purpose ranking")
+            st.dataframe(
+                ai_ranked[["source_name","fit_score","key_strengths","key_limitations"]]
+                .rename(columns={
+                    "source_name":"Data source",
+                    "fit_score":"Fit score (0–3)",
+                    "key_strengths":"Why it may fit",
+                    "key_limitations":"Important limitations"
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+            st.caption("AI interprets the question; rankings come from the predefined dataset and scoring rubric.")
+        except Exception as e:
+            st.error("The AI assistant could not run. Check the OpenAI API key and package version in Streamlit Secrets/logs.")
+            st.code(str(e))
 
 with methods:
     st.subheader("Methodology")
