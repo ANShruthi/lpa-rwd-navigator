@@ -1,0 +1,8 @@
+field,use_case,criteria,score_interpretation
+testing_patterns_use,Testing patterns,"Routine-care Lp(a), dates/units, demographics/geography",0 none; 1 limited; 2 usable; 3 strong
+epidemiology_use,Epidemiology / risk,"Measured Lp(a), phenotyping, longitudinality, population design",0 none; 1 limited; 2 usable; 3 strong
+cv_outcomes_use,Cardiovascular outcomes,MI/stroke/revascularization/HF/aortic stenosis/mortality,0 none; 1 limited; 2 usable; 3 strong
+treatment_patterns_use,Treatment patterns,Medication exposure and longitudinal treatment data,0 none; 1 limited; 2 usable; 3 strong
+health_equity_use,Health equity,"Race/ethnicity, SES/SDOH and diversity",0 none; 1 limited; 2 usable; 3 strong
+heor_use,HEOR / economics,"Utilization, payer/enrollment, pharmacy and costs",0 none; 1 limited; 2 usable; 3 strong
+genetics_use,Genetics,Genotype/genome linked to Lp(a) and phenotypes,0 none; 1 limited; 2 usable; 3 strong
