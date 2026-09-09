@@ -9,6 +9,9 @@ ROOT = Path(__file__).resolve().parent
 df = pd.read_csv(ROOT / "lpa_rwd_sources.csv").fillna("")
 ev = pd.read_csv(ROOT / "evidence.csv").fillna("")
 rubric = pd.read_csv(ROOT / "scoring_rubric.csv").fillna("")
+design = pd.read_csv(ROOT / "v5_design_attributes.csv").fillna("")
+weights_df = pd.read_csv(ROOT / "v5_tiebreaker_weights.csv").fillna(0)
+df = df.merge(design, on=["source_id", "source_name"], how="left")
 
 # ---- V4 fit-for-purpose matching helpers ---------------------------------
 # Hard requirements are evaluated before use-case scoring.
@@ -136,6 +139,54 @@ def fit_label(score):
     if score > 0:
         return f"Limited — {score:.1f}"
     return "Not suitable — 0.0"
+
+
+V5_ATTRIBUTE_FIELDS = [
+    "routine_care_score", "scale_score", "followup_score", "outcome_quality_score",
+    "assay_score", "genetics_depth_score", "medication_depth_score",
+    "economic_data_score", "diversity_sdoh_score", "repeated_lpa_score",
+]
+
+def _priority_weight_map(priority_names):
+    """Average the predefined design-quality weights across selected priorities."""
+    if not priority_names:
+        return {f: 0.0 for f in V5_ATTRIBUTE_FIELDS}
+    rows = weights_df[weights_df["priority"].isin(priority_names)]
+    if rows.empty:
+        return {f: 0.0 for f in V5_ATTRIBUTE_FIELDS}
+    return {f: float(pd.to_numeric(rows[f], errors="coerce").fillna(0).mean()) for f in V5_ATTRIBUTE_FIELDS}
+
+def add_v5_design_score(frame, priority_names):
+    out = frame.copy()
+    wmap = _priority_weight_map(priority_names)
+    total_weight = sum(wmap.values())
+    if total_weight <= 0:
+        out["design_quality_score"] = 0.0
+        return out
+    score = 0
+    for field, weight in wmap.items():
+        score = score + pd.to_numeric(out[field], errors="coerce").fillna(0) * weight
+    out["design_quality_score"] = score / total_weight
+    return out
+
+def v5_rank(frame, priority_names):
+    """Hard requirements and use-case fit remain primary; design quality breaks ties."""
+    out = add_v5_design_score(frame, priority_names)
+    return out.sort_values(
+        ["_tier_order", "fit_score", "design_quality_score", "base_fit_score"],
+        ascending=[True, False, False, False],
+    )
+
+def recommendation_tier(row, max_primary_design=None):
+    if row["fit_tier"] == "Conditional fit":
+        return "Conditional fit"
+    if row["fit_tier"] != "Strong fit":
+        return "Alternative"
+    if float(row["fit_score"]) >= 2.5:
+        if max_primary_design is None or float(row["design_quality_score"]) >= max_primary_design - 0.35:
+            return "Primary recommendation"
+        return "Other strong fit"
+    return "Other strong fit"
 
 st.set_page_config(
     page_title="Lp(a) RWD Navigator",
@@ -289,6 +340,7 @@ with matcher:
 
     score_cols = [use_map[p] for p in priorities]
     ranked = add_fit_scores(df, score_cols, manual_requirements)
+    ranked = v5_rank(ranked, priorities)
 
     primary = ranked[ranked["fit_tier"].isin(["Strong fit", "Conditional fit"])].copy()
     alternatives = ranked[ranked["fit_tier"] == "Alternative"].copy()
@@ -296,12 +348,14 @@ with matcher:
     st.markdown("#### Eligible sources")
     if len(primary):
         primary["Fit"] = primary["fit_score"].map(fit_label)
+        max_design = primary.loc[primary["fit_score"] >= 2.5, "design_quality_score"].max() if (primary["fit_score"] >= 2.5).any() else None
+        primary["Recommendation"] = primary.apply(lambda r: recommendation_tier(r, max_design), axis=1)
+        primary["Design tie-breaker"] = primary["design_quality_score"].map(lambda x: f"{float(x):.2f}/3")
         st.dataframe(
             primary[
-                ["source_name", "fit_tier", "Fit", "requirement_caveats", "key_strengths", "key_limitations"]
+                ["source_name", "Recommendation", "Fit", "Design tie-breaker", "requirement_caveats", "key_strengths", "key_limitations"]
             ].rename(columns={
                 "source_name":"Data source",
-                "fit_tier":"Eligibility",
                 "requirement_caveats":"Requirement caveats",
                 "key_strengths":"Why it may fit",
                 "key_limitations":"Important limitations",
@@ -452,6 +506,7 @@ if study_question:
 
             score_cols_ai = [use_map_ai[p] for p in req["priorities"] if p in use_map_ai]
             ai_all = add_fit_scores(df, score_cols_ai, ai_requirements, req["geography"])
+            ai_all = v5_rank(ai_all, req["priorities"])
 
             eligible = ai_all[ai_all["fit_tier"].isin(["Strong fit", "Conditional fit"])].copy()
             alternatives = ai_all[ai_all["fit_tier"] == "Alternative"].copy()
@@ -464,16 +519,18 @@ if study_question:
                 low_scoring_eligible["fit_tier"] = "Alternative"
                 low_scoring_eligible["unmet_hard_requirements"] = low_scoring_eligible["requirement_caveats"].replace("", "Low fit-for-purpose score")
                 alternatives = pd.concat([alternatives, low_scoring_eligible], ignore_index=False)
-                alternatives = alternatives.sort_values(["fit_score", "base_fit_score"], ascending=[False, False])
+                alternatives = alternatives.sort_values(["fit_score", "design_quality_score", "base_fit_score"], ascending=[False, False, False])
 
             st.markdown("#### Best-fit sources")
             if len(primary):
                 primary["Fit"] = primary["fit_score"].map(fit_label)
+                max_design = primary.loc[primary["fit_score"] >= 2.5, "design_quality_score"].max() if (primary["fit_score"] >= 2.5).any() else None
+                primary["Recommendation"] = primary.apply(lambda r: recommendation_tier(r, max_design), axis=1)
+                primary["Design tie-breaker"] = primary["design_quality_score"].map(lambda x: f"{float(x):.2f}/3")
                 st.dataframe(
-                    primary[["source_name","fit_tier","Fit","requirement_caveats","key_strengths","key_limitations"]]
+                    primary[["source_name","Recommendation","Fit","Design tie-breaker","requirement_caveats","key_strengths","key_limitations"]]
                     .rename(columns={
                         "source_name":"Data source",
-                        "fit_tier":"Eligibility",
                         "requirement_caveats":"Requirement caveats",
                         "key_strengths":"Why it may fit",
                         "key_limitations":"Important limitations"
@@ -524,9 +581,9 @@ with methods:
 
 `Unknown` is treated differently from `No`: lack of public documentation does not establish that a variable or capability is absent.
 
-**V4 matching rule:** hard requirements are evaluated before use-case scoring. `Yes` fully satisfies a requirement; `Partial` remains eligible with an explicit penalty/caveat; `Limited`, `Unknown`, and `No` do not enter the primary best-fit pool. Geography is also treated as a hard requirement when the user explicitly specifies it. The 0–3 use-case score then ranks the eligible sources.
+**V5 matching rule:** hard requirements are evaluated first. `Yes` fully satisfies a requirement; `Partial` remains eligible with an explicit penalty/caveat; `Limited`, `Unknown`, and `No` do not enter the primary best-fit pool. The 0–3 use-case score ranks eligible sources. When sources tie or nearly tie, an evidence-derived design-quality layer breaks ties using attributes such as routine-care representativeness, analytic scale, follow-up, outcome ascertainment, Lp(a) assay documentation, genetics depth, medication/dispensing depth, payer/cost depth, diversity/SDOH depth, and repeated Lp(a) potential. These tie-breaker attributes do not override hard requirements or the primary fit score.
 """)
-    st.caption("Source characteristics and fit assessments should be re-verified before protocol finalization, vendor contracting, regulatory submission, or other consequential use.")
+    st.caption("Source characteristics, fit assessments, and V5 design-quality attributes should be re-verified before protocol finalization, vendor contracting, regulatory submission, manuscript submission, or other consequential use.")
 
     st.write(
         "Documented source characteristics are separated from analyst-assigned "
@@ -538,6 +595,14 @@ with methods:
         use_container_width=True,
         hide_index=True
     )
+
+    st.subheader("V5 design-quality tie-breaker")
+    st.write(
+        "The tie-breaker is used only after hard-requirement eligibility and use-case fit. "
+        "Scores are working evidence-derived assessments on a 0–3 scale and should be re-verified before external use."
+    )
+    design_display = design.copy()
+    st.dataframe(design_display, use_container_width=True, hide_index=True)
 
     st.subheader("Evidence register")
 
