@@ -1,0 +1,26 @@
+source_id,source_name,routine_care_score,scale_score,followup_score,outcome_quality_score,assay_score,genetics_depth_score,medication_depth_score,economic_data_score,diversity_sdoh_score,repeated_lpa_score,attribute_status
+UKB,UK Biobank,1,3,3,3,2,3,1,0,2,1,Working evidence-derived tie-breaker; verify before external publication
+AOU,All of Us Research Program,3,3,2,2,1,3,2,1,3,1,Working evidence-derived tie-breaker; verify before external publication
+MESA,Multi-Ethnic Study of Atherosclerosis (MESA),0,1,3,3,2,2,1,0,3,1,Working evidence-derived tie-breaker; verify before external publication
+ARIC,Atherosclerosis Risk in Communities (ARIC) Study,0,2,3,3,2,2,1,0,2,1,Working evidence-derived tie-breaker; verify before external publication
+CARDIA,CARDIA,0,1,3,3,2,2,1,0,3,1,Working evidence-derived tie-breaker; verify before external publication
+FHSOS,Framingham Heart Study – Offspring Cohort,0,1,3,3,2,2,1,0,2,1,Working evidence-derived tie-breaker; verify before external publication
+JHS,Jackson Heart Study,0,1,3,3,2,2,1,0,3,1,Working evidence-derived tie-breaker; verify before external publication
+EPIC,Epic Cosmos,3,3,2,2,2,0,2,1,2,2,Working evidence-derived tie-breaker; verify before external publication
+TRINETX,TriNetX,3,3,2,2,1,0,2,1,2,2,Working evidence-derived tie-breaker; verify before external publication
+OPTUMCDM,Optum Clinformatics Data Mart + laboratory data,3,3,3,2,1,0,3,3,1,2,Working evidence-derived tie-breaker; verify before external publication
+FAMILYHEART,Family Heart Database,3,3,2,2,2,0,3,1,2,2,Working evidence-derived tie-breaker; verify before external publication
+HEALTHVERITY,HealthVerity linked claims + laboratory + mortality data,3,3,2,2,1,0,3,1,2,2,Working evidence-derived tie-breaker; verify before external publication
+OPTUMMC,Optum Market Clarity,3,2,2,2,1,0,3,2,2,2,Working evidence-derived tie-breaker; verify before external publication
+CANLPA,Canadian Lipoprotein(a) Registry,1,0,2,2,0,0,1,0,1,2,Working evidence-derived tie-breaker; verify before external publication
+PCORNET,PCORnet,3,3,2,2,1,1,2,1,3,2,Working evidence-derived tie-breaker; verify before external publication
+REGARDS,REGARDS,0,2,3,3,2,2,1,0,3,1,Working evidence-derived tie-breaker; verify before external publication
+DHS,Dallas Heart Study,0,1,2,2,3,3,1,0,3,1,Working evidence-derived tie-breaker; verify before external publication
+CGPS,Copenhagen General Population Study,0,3,3,3,2,3,1,0,1,1,Working evidence-derived tie-breaker; verify before external publication
+CCHS,Copenhagen City Heart Study,0,2,3,3,2,3,1,0,1,1,Working evidence-derived tie-breaker; verify before external publication
+BIOMARCARE,BiomarCaRE / MORGAM consortium,0,2,2,2,3,2,1,0,2,1,Working evidence-derived tie-breaker; verify before external publication
+WHS,Women's Health Study,0,2,3,3,3,2,1,0,2,1,Working evidence-derived tie-breaker; verify before external publication
+WHIOS,Women's Health Initiative Observational Study,0,2,3,3,2,2,1,1,3,1,Working evidence-derived tie-breaker; verify before external publication
+EPICNORFOLK,EPIC-Norfolk,0,2,3,2,2,2,1,0,1,1,Working evidence-derived tie-breaker; verify before external publication
+DECODEIS,deCODE Iceland population genetics dataset,0,3,2,2,3,3,0,0,1,1,Working evidence-derived tie-breaker; verify before external publication
+PHS,Physicians' Health Study,0,2,2,3,2,1,1,0,0,1,Working evidence-derived tie-breaker; verify before external publication

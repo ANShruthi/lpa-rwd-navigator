@@ -1,0 +1,8 @@
+priority,routine_care_score,scale_score,followup_score,outcome_quality_score,assay_score,genetics_depth_score,medication_depth_score,economic_data_score,diversity_sdoh_score,repeated_lpa_score
+Testing patterns,0.35,0.2,0,0,0.15,0,0,0,0.2,0.1
+Epidemiology / risk,0,0.2,0.25,0.2,0.15,0,0,0,0.1,0.1
+Cardiovascular outcomes,0,0.15,0.25,0.3,0.15,0,0,0,0.1,0.05
+Treatment patterns,0.3,0.15,0,0,0.1,0,0.3,0.1,0.05,0
+Health equity,0.25,0.15,0,0.1,0.1,0,0,0.05,0.35,0
+HEOR / costs / utilization,0.25,0.1,0,0.1,0,0,0.2,0.35,0,0
+Genetics,0,0.2,0.1,0.15,0.15,0.4,0,0,0,0
